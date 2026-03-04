@@ -106,6 +106,7 @@ function readUiSettings() {
     theme: "neon",
     motion: 86,
     api_base: "",
+    site_password: "",
     ui_scale: 100,
     card_size: 150,
     confetti: "subtle",
@@ -137,6 +138,12 @@ function currentApiBaseUrl() {
   return raw.replace(/\/$/, "");
 }
 
+function currentSitePassword() {
+  const ui = readUiSettings();
+  const liveField = byId("siteAccessPassword");
+  return (liveField?.value || ui.site_password || "").trim();
+}
+
 function runningOnGithubPages() {
   return window.location.hostname.endsWith("github.io");
 }
@@ -159,6 +166,10 @@ async function api(path, options = {}) {
   }
   if (authToken()) {
     headers.set("Authorization", `Bearer ${authToken()}`);
+  }
+  const sharedPassword = currentSitePassword();
+  if (sharedPassword) {
+    headers.set("X-Workshop-Password", sharedPassword);
   }
   const response = await fetch(resolveApiUrl(path), { ...options, headers });
   let data;
@@ -2091,6 +2102,9 @@ function applySavedUiSettings() {
   if (byId("apiBaseUrl")) {
     byId("apiBaseUrl").value = settings.api_base || "";
   }
+  if (byId("siteAccessPassword")) {
+    byId("siteAccessPassword").value = settings.site_password || "";
+  }
   if (byId("confettiMode")) {
     byId("confettiMode").value = settings.confetti || "subtle";
   }
@@ -2116,6 +2130,22 @@ function saveApiBase() {
   settings.api_base = byId("apiBaseUrl").value.trim();
   writeUiSettings(settings);
   setStatus("aiStatus", "API base saved. Keep provider keys on backend only.", false, true);
+}
+
+function saveSitePassword() {
+  const settings = readUiSettings();
+  settings.site_password = byId("siteAccessPassword").value.trim();
+  writeUiSettings(settings);
+  setStatus("siteAccessStatus", "Shared access password saved on this browser.", false, true);
+}
+
+async function testSitePassword() {
+  try {
+    await api("/api/health");
+    setStatus("siteAccessStatus", "Password accepted by backend.", false, true);
+  } catch (error) {
+    setStatus("siteAccessStatus", error.message || "Password test failed.", true, true);
+  }
 }
 
 function emailInput() {
@@ -2374,6 +2404,8 @@ function wireEvents() {
   });
 
   byId("saveApiBase").addEventListener("click", saveApiBase);
+  byId("saveSitePassword").addEventListener("click", saveSitePassword);
+  byId("testSitePassword").addEventListener("click", () => testSitePassword().catch((error) => setStatus("siteAccessStatus", error.message, true, true)));
   byId("registerBtn").addEventListener("click", () => registerAccount().catch((error) => setStatus("authStatus", error.message, true, true)));
   byId("loginBtn").addEventListener("click", () => loginAccount().catch((error) => setStatus("authStatus", error.message, true, true)));
   byId("logoutBtn").addEventListener("click", () => logoutAccount().catch((error) => setStatus("authStatus", error.message, true, true)));

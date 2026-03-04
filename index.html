@@ -170,11 +170,17 @@
                 <label>API Base URL (for GitHub Pages frontend)
                   <input id="apiBaseUrl" type="text" placeholder="https://your-backend.example.com" />
                 </label>
+                <label>Site Access Password
+                  <input id="siteAccessPassword" type="password" autocomplete="current-password" placeholder="Shared password" />
+                </label>
               </div>
               <div class="button-row">
                 <button id="saveApiBase" type="button">Save API Base</button>
+                <button id="saveSitePassword" type="button">Save Password</button>
+                <button id="testSitePassword" type="button">Test Password</button>
               </div>
               <p id="aiStatus" class="status"></p>
+              <p id="siteAccessStatus" class="status"></p>
             </div>
           </details>
         </aside>
