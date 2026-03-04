@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex" />
+    <title>MTG Arena Brawl Workshop</title>
+    <link rel="stylesheet" href="./assets/styles.css" />
+  </head>
+  <body data-theme="neon">
+    <div class="fx-layer" aria-hidden="true">
+      <canvas id="sparkleCanvas"></canvas>
+      <div class="orb orb-a"></div>
+      <div class="orb orb-b"></div>
+      <div class="orb orb-c"></div>
+    </div>
+    <div id="scrollProgress"></div>
+    <main class="app-shell">
+      <header class="topbar reveal">
+        <div>
+          <p class="eyebrow">Arena-Legal Deck Builder</p>
+          <h1>MTG Arena Brawl Workshop</h1>
+          <p class="lede">Collection-first Brawl/Historic Brawl building: generate from commander or optimize an imported online decklist.</p>
+        </div>
+        <div class="meta-strip" aria-label="Corpus status">
+          <article class="meta-pill"><span>Cards</span><strong id="cardsLoaded">-</strong></article>
+          <article class="meta-pill"><span>Commanders</span><strong id="commandersLoaded">-</strong></article>
+          <article class="meta-pill"><span>Updated UTC</span><strong id="generatedAt">-</strong></article>
+        </div>
+      </header>
+
+      <div class="workspace">
+        <aside class="rail">
+          <section class="panel reveal" id="setupPanel">
+            <h2>Deck Setup</h2>
+            <div class="field-grid">
+              <label>
+                Format
+                <select id="format">
+                  <option value="historicbrawl">Historic Brawl (100)</option>
+                  <option value="brawl">Brawl (60)</option>
+                </select>
+              </label>
+              <label>
+                Build Mode
+                <select id="buildMode">
+                  <option value="balanced">Balanced</option>
+                  <option value="power">Power</option>
+                  <option value="budget">Budget / Collection</option>
+                </select>
+              </label>
+              <label>
+                Visual Style
+                <select id="themePresetQuick">
+                  <option value="aurora">Royal Dawn</option>
+                  <option value="sunset">Copper Bloom</option>
+                  <option value="neon">Night Luxe</option>
+                </select>
+              </label>
+              <label>
+                Commander Search
+                <input id="commanderQuery" type="text" placeholder="Search commander name" />
+              </label>
+              <label>
+                Commander
+                <select id="commanderSelect"></select>
+              </label>
+              <label>
+                Partner Search
+                <input id="partnerCommanderQuery" type="text" placeholder="Search legal partner name" />
+              </label>
+              <label>
+                Partner Commander (Optional)
+                <select id="partnerCommanderSelect"></select>
+              </label>
+              <p id="partnerCommanderHint" class="muted-note compact"></p>
+              <label class="toggle-row">
+                <span>Include combo check</span>
+                <input id="includeCombos" type="checkbox" checked />
+              </label>
+            </div>
+            <div class="button-row">
+              <button id="loadCommanders" type="button">Refresh Commanders</button>
+              <button id="suggestDeck" type="button" class="primary">Generate Deck</button>
+            </div>
+            <p id="deckStatus" class="status" aria-live="polite"></p>
+          </section>
+
+          <section class="panel reveal">
+            <h2>Role Mix</h2>
+            <div class="button-row role-presets" id="rolePresetButtons" aria-label="Role presets">
+              <button type="button" data-preset="balanced" class="primary">Balanced</button>
+              <button type="button" data-preset="control">Control</button>
+              <button type="button" data-preset="combo">Combo</button>
+              <button type="button" data-preset="midrange">Midrange</button>
+              <button type="button" data-preset="aggro">Aggro</button>
+            </div>
+            <label class="inline-toggle">
+              Radar Scale
+              <select id="roleScaleMode">
+                <option value="full">Full Range</option>
+                <option value="zoom">Zoomed Radar</option>
+              </select>
+            </label>
+            <div class="slider-stack" id="roleSliderStack"></div>
+            <div id="roleBudgetSummary" class="role-budget-summary"></div>
+            <div id="roleRadar" class="role-radar" aria-label="Role mix radar chart"></div>
+            <div id="roleLegend" class="role-legend"></div>
+          </section>
+
+          <section class="panel reveal">
+            <h2>Collection Sync</h2>
+            <label>
+              Custom Log Path(s) Optional
+              <textarea id="logPathInput" rows="3" placeholder="/path/to/Player.log&#10;/path/to/Player-prev.log"></textarea>
+            </label>
+            <div class="button-row">
+              <button id="importCollection" type="button" class="primary">Import MTGA Collection</button>
+              <button id="refreshCollection" type="button">Refresh Status</button>
+              <button id="downloadCollectionCsv" type="button">Download Full Collection CSV</button>
+            </div>
+            <p id="collectionStatus" class="status" aria-live="polite"></p>
+            <details class="mini-details">
+              <summary>Quick Copy Commands</summary>
+              <div class="button-row">
+                <button id="copyImportCommand" type="button">Copy Import CLI</button>
+                <button id="copyMacLogPath" type="button">Copy macOS Log Path</button>
+                <button id="copyWindowsLogPath" type="button">Copy Windows Log Path</button>
+              </div>
+              <p class="muted-note">Run the CLI after opening MTGA and visiting Collection + Decks at least once.</p>
+            </details>
+            <details class="mini-details">
+              <summary>Platform Sync Guide</summary>
+              <div class="guide-block">
+                <p><strong>Windows / macOS / Steam:</strong> easiest path. Enable Detailed Logs in MTGA, restart MTGA, open Collection, then run Import MTGA Collection.</p>
+                <p><strong>iOS:</strong> export logs from device to Mac/PC, then run import with those paths.</p>
+                <p><strong>Android:</strong> easiest reliable path is to log into the same account on desktop (shared account), then import from desktop logs.</p>
+                <p><strong>Online decklists:</strong> paste list into Optimize Imported Decklist to get collection-aware swap priorities.</p>
+              </div>
+            </details>
+          </section>
+
+          <section class="panel reveal" id="accountPanel">
+            <h2>Account & Coins</h2>
+            <p class="muted-note">Create/login once, buy coins, and spend coins on server-side AI requests so your API bill is protected.</p>
+            <div class="field-grid">
+              <label>Email
+                <input id="authEmail" type="email" autocomplete="email" placeholder="you@example.com" />
+              </label>
+              <label>Password
+                <input id="authPassword" type="password" autocomplete="current-password" placeholder="Minimum 8 characters" />
+              </label>
+            </div>
+            <div class="button-row">
+              <button id="registerBtn" type="button">Register</button>
+              <button id="loginBtn" type="button" class="primary">Login</button>
+              <button id="logoutBtn" type="button">Logout</button>
+              <button id="refreshAccountBtn" type="button">Refresh Account</button>
+            </div>
+            <div id="accountStats" class="stats stat-row"></div>
+            <div class="button-row coin-packages" id="coinPackageButtons"></div>
+            <p id="authStatus" class="status" aria-live="polite"></p>
+          </section>
+
+          <details class="panel advanced reveal" id="aiSettingsPanel">
+            <summary>Connection Settings</summary>
+            <div class="advanced-section">
+              <p class="muted-note">Security-first mode: API keys are backend-only. This frontend does not accept provider keys.</p>
+              <div class="field-grid">
+                <label>API Base URL (for GitHub Pages frontend)
+                  <input id="apiBaseUrl" type="text" placeholder="https://your-backend.example.com" />
+                </label>
+              </div>
+              <div class="button-row">
+                <button id="saveApiBase" type="button">Save API Base</button>
+              </div>
+              <p id="aiStatus" class="status"></p>
+            </div>
+          </details>
+        </aside>
+
+        <section class="content">
+          <details class="panel reveal display-panel" id="displayPanel">
+            <summary>Display Controls</summary>
+            <div class="display-body">
+              <p class="stats">Tune readability and reduce information overload.</p>
+              <div class="field-grid display-grid">
+              <label>
+                Deck View
+                <select id="deckViewMode">
+                  <option value="list">List</option>
+                  <option value="grid">Image Grid</option>
+                </select>
+              </label>
+              <label>
+                Sort Cards
+                <select id="deckSortBy">
+                  <option value="score_desc">Score (High to Low)</option>
+                  <option value="edhrec_asc">EDHREC Rank (Popular First)</option>
+                  <option value="synergy_desc">Synergy Score</option>
+                  <option value="cmc_asc">CMC (Low to High)</option>
+                  <option value="alpha_asc">Name (A-Z)</option>
+                </select>
+              </label>
+              <label>
+                Role Filter
+                <select id="deckRoleFilter">
+                  <option value="all">All Cards</option>
+                </select>
+              </label>
+              <label>
+                Insight Density
+                <select id="infoDensity">
+                  <option value="normal">Balanced</option>
+                  <option value="focus">Focus Mode</option>
+                  <option value="deep">Deep Analysis</option>
+                </select>
+              </label>
+              <label>
+                Card Size
+                <input id="cardSize" type="range" min="112" max="220" value="150" step="2" />
+                <span id="cardSizeValue" class="inline-value">150px</span>
+              </label>
+              <label>
+                UI Scale
+                <input id="uiScale" type="range" min="85" max="120" value="100" step="1" />
+                <span id="uiScaleValue" class="inline-value">100%</span>
+              </label>
+              <label>
+                Theme Preset
+                <select id="themePreset">
+                  <option value="aurora">Royal Dawn</option>
+                  <option value="sunset">Copper Bloom</option>
+                  <option value="neon">Night Luxe</option>
+                </select>
+              </label>
+              <label>
+                Motion Intensity
+                <input id="motionLevel" type="range" min="0" max="100" value="78" step="1" />
+                <span id="motionLevelValue" class="inline-value">78%</span>
+              </label>
+              <label>
+                Confetti Mode
+                <select id="confettiMode">
+                  <option value="subtle">Subtle</option>
+                  <option value="full">Full Celebration</option>
+                  <option value="off">Off</option>
+                </select>
+              </label>
+              </div>
+            </div>
+          </details>
+
+          <section class="panel deck-panel reveal" id="deckPanel" data-view="list">
+            <div class="panel-head">
+              <h2>Suggested Deck</h2>
+              <div id="deckStats" class="stats stat-row"></div>
+            </div>
+
+            <div class="commander-spot" id="commanderPreview"></div>
+
+            <div class="deck-actions">
+              <button id="copyDeck" type="button">Copy Decklist</button>
+              <button id="downloadDeck" type="button">Download .txt</button>
+            </div>
+
+            <details id="methodPanel" class="method-panel">
+              <summary>How this suggestion is generated</summary>
+              <div id="methodContent" class="method-content"></div>
+            </details>
+
+            <section class="deck-list-wrap">
+              <h3>Deck List</h3>
+              <div class="table-wrap">
+                <table id="deckTable" class="deck-table">
+                  <thead>
+                    <tr>
+                      <th>Card</th>
+                      <th>Type</th>
+                      <th>CMC</th>
+                      <th>Roles</th>
+                      <th>Combo</th>
+                      <th>EDHREC</th>
+                      <th>Popularity</th>
+                      <th>Power</th>
+                      <th>Synergy</th>
+                      <th>Owned</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </section>
+
+            <section class="deck-grid-wrap">
+              <h3>Card Gallery</h3>
+              <div id="deckGallery" class="image-grid deck-grid"></div>
+            </section>
+
+            <section class="deck-text-wrap">
+              <h3>Deck Text</h3>
+              <textarea id="deckList" rows="14" spellcheck="false"></textarea>
+            </section>
+          </section>
+
+          <section class="panel reveal" id="aiCoachPanel">
+            <div class="panel-head">
+              <h2>AI Deck Coach</h2>
+              <p class="stats">Server-side AI uses coin balance. Local heuristic generation remains free.</p>
+            </div>
+            <textarea id="aiCoachPrompt" rows="5" placeholder="Ask for mulligan plan, matchup tips, upgrade path, side-grade options, lines, etc."></textarea>
+            <div class="button-row">
+              <button id="askAiCoach" type="button" class="primary">Ask AI Coach</button>
+              <button id="copyAiCoachResult" type="button">Copy Answer</button>
+            </div>
+            <p id="aiCoachStatus" class="status" aria-live="polite"></p>
+            <pre id="aiCoachResult" class="preview-oracle"></pre>
+          </section>
+
+          <section class="panel reveal" id="optimizePanel">
+            <div class="panel-head">
+              <h2>Optimize Imported Decklist</h2>
+              <p class="stats">Paste a deck from Moxfield/Archidekt/MTGA export and get priority swaps.</p>
+            </div>
+            <textarea id="importDeckText" rows="12" placeholder="Paste deck text here (Commander + Mainboard lines)."></textarea>
+            <div class="button-row">
+              <button id="analyzeImportedDeck" type="button" class="primary">Analyze + Optimize</button>
+              <button id="copyOptimizedDeck" type="button">Copy Optimized Deck</button>
+            </div>
+            <p id="importStatus" class="status" aria-live="polite"></p>
+
+            <details class="mini-details" id="replacementPanel" open>
+              <summary>Priority Replacements</summary>
+              <div class="table-wrap">
+                <table class="deck-table" id="replacementTable">
+                  <thead>
+                    <tr>
+                      <th>Priority</th>
+                      <th>Replace</th>
+                      <th>Add</th>
+                      <th>Score Gain</th>
+                      <th>Reason</th>
+                    </tr>
+                  </thead>
+                  <tbody id="replacementTableBody"></tbody>
+                </table>
+              </div>
+            </details>
+
+            <details class="mini-details" id="missingAltPanel">
+              <summary>Owned Alternatives For Missing Cards</summary>
+              <div id="missingAltResults" class="result-list"></div>
+            </details>
+          </section>
+
+          <details class="panel advanced reveal" id="advancedPanel">
+            <summary>Advanced Tools</summary>
+
+            <section class="advanced-section" id="comboPanel" hidden>
+              <h3>Combo Opportunities</h3>
+              <div id="comboResults" class="result-list"></div>
+            </section>
+
+            <section class="advanced-section">
+              <h3>Card Explorer</h3>
+              <div class="field-grid search-grid">
+                <label>
+                  Search
+                  <input id="cardQuery" type="text" placeholder="draw cards, destroy target, dragon..." />
+                </label>
+                <label>
+                  Color Identity
+                  <input id="colorFilter" type="text" maxlength="5" placeholder="WUBRG" />
+                </label>
+                <label>
+                  Type
+                  <input id="typeFilter" type="text" placeholder="Creature, Instant, Land..." />
+                </label>
+                <div class="button-row align-end">
+                  <button id="searchCards" type="button">Search Cards</button>
+                </div>
+              </div>
+              <div id="cardResults" class="image-grid"></div>
+            </section>
+          </details>
+        </section>
+      </div>
+    </main>
+    <div class="quick-dock" aria-label="Quick Navigation">
+      <button id="jumpToSetup" type="button">Setup</button>
+      <button id="jumpToOptimize" type="button">Optimize</button>
+      <button id="jumpToTop" type="button">Top</button>
+    </div>
+    <div id="confettiLayer" aria-hidden="true"></div>
+    <div id="generateOverlay" class="generate-overlay" hidden>
+      <div class="generate-card">
+        <div class="generate-spinner"></div>
+        <h3>Forging Deck</h3>
+        <p id="generateStage">Scoring synergy and role pressure...</p>
+        <div class="generate-track"><span id="generateTrackFill"></span></div>
+      </div>
+    </div>
+    <dialog id="cardPreviewModal" class="card-preview-modal">
+      <form method="dialog" class="card-preview-shell">
+        <button id="closeCardPreview" class="close-preview" type="submit" aria-label="Close preview">x</button>
+        <div class="card-preview-layout">
+          <img id="previewCardImage" src="" alt="" />
+          <div class="card-preview-meta">
+            <h3 id="previewCardName">Card</h3>
+            <p id="previewCardType" class="preview-subtle"></p>
+            <p id="previewCardStats" class="preview-subtle"></p>
+            <div id="previewCardRoles" class="role-legend"></div>
+            <div>
+              <h4>Oracle Text</h4>
+              <pre id="previewCardOracle" class="preview-oracle"></pre>
+            </div>
+            <div>
+              <h4>Combo Links</h4>
+              <div id="previewCardCombos" class="preview-combos"></div>
+            </div>
+          </div>
+        </div>
+      </form>
+    </dialog>
+    <div id="toastStack" class="toast-stack" aria-live="polite"></div>
+
+    <script src="./assets/app.js"></script>
+  </body>
+</html>
