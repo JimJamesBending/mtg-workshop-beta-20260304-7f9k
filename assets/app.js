@@ -2304,7 +2304,12 @@ async function askAiCoach() {
       body: JSON.stringify({ prompt, deck_text: deckText }),
     });
     byId("aiCoachResult").textContent = text(payload.answer || "");
-    setStatus("aiCoachStatus", `AI answer ready. Coins remaining: ${payload.balance?.coins ?? "-"}.`, false, true);
+    const warning = text(payload.cost_warning || "");
+    const provider = text(payload.provider || "");
+    const model = text(payload.model || "");
+    const cost = Number(payload.estimated_request_cost_usd || 0);
+    const base = `AI answer ready (${provider}${model ? `:${model}` : ""}). Coins remaining: ${payload.balance?.coins ?? "-"}. Est. cost/request: $${cost.toFixed(4)}.`;
+    setStatus("aiCoachStatus", warning ? `${base} ${warning}` : base, Boolean(warning), true);
     await refreshAccount();
   } catch (error) {
     setStatus("aiCoachStatus", error.message, true, true);
