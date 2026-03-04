@@ -137,6 +137,10 @@ function currentApiBaseUrl() {
   return raw.replace(/\/$/, "");
 }
 
+function runningOnGithubPages() {
+  return window.location.hostname.endsWith("github.io");
+}
+
 function resolveApiUrl(path) {
   if (/^https?:\/\//i.test(path)) {
     return path;
@@ -2425,6 +2429,12 @@ async function init() {
   setupScrollProgress();
   setupRevealObserver();
   wireEvents();
+
+  if (runningOnGithubPages() && !currentApiBaseUrl()) {
+    setStatus("aiStatus", "GitHub Pages frontend is live. Set API Base URL to your private backend to enable deck tools.", true);
+    setStatus("deckStatus", "Backend not connected yet. Add API Base URL, then click Refresh Commanders.", true);
+    return;
+  }
 
   await loadCoinPackages();
   await refreshAccount();
